@@ -1,8 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	"log"
+	"io"
 	"net/http"
 )
 
@@ -22,9 +23,30 @@ func handleTripReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	jsonBody, err := json.Marshal(reqBody)
 
-	log.Println("Received request to preview trip")
+	if err != nil {
+		http.Error(w, "Failed to marshal request", http.StatusInternalServerError)
+		return
+	}
+	
+	reader := bytes.NewReader(jsonBody) // creating a new reader buffer because r.Body is already closed
 
-	writeJSON(w,http.StatusCreated,"ok")
+	response, err := http.Post("http://trip-service:8083/trip/preview", "application/json", reader)
+	
+	if err != nil {
+		http.Error(w, "Failed to connect to trip service", http.StatusInternalServerError)
+		return
+	}
+
+	defer response.Body.Close()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	
+	if _, err := io.Copy(w, response.Body); err != nil {
+		// Log error if needed
+		return
+	}
 
 }

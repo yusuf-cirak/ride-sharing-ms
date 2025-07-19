@@ -7,9 +7,9 @@ import (
 )
 
 type RideFareModel struct {
-	ID primitive.ObjectID
-	UserID string
-	PackageSlug string // ex: van, luxury, sedan
-	TotalPriceInCents float64
-	ExpiresAt time.Time
+	ID primitive.ObjectID `json:"_id,omitempty"`
+	UserID string `json:"userId"`
+	PackageSlug string `json:"packageSlug"` // ex: van, luxury, sedan
+	TotalPriceInCents float64 `json:"totalPriceInCents"`
+	ExpiresAt time.Time `json:"expiresAt"`
 }
