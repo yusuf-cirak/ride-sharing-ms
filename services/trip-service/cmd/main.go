@@ -19,10 +19,9 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /trip/preview", httpHandler.HandleTripReview)
+	mux.HandleFunc("POST /trip/preview", httpHandler.HandleTripPreview)
 
-
-	server:= &http.Server{
+	server := &http.Server{
 		Addr:    ":8083",
 		Handler: mux,
 	}

@@ -7,46 +7,42 @@ import (
 	"ride-sharing/shared/types"
 )
 
-
 type HttpHandler struct {
 	Service domain.TripService
 }
 
-
 type previewTripRequest struct {
-	UserID string `json:"userId"`
-	Pickup types.Coordinate `json:"pickup"`
+	UserID      string           `json:"userID"`
+	Pickup      types.Coordinate `json:"pickup"`
 	Destination types.Coordinate `json:"destination"`
 }
 
-func (h *HttpHandler) HandleTripReview(w http.ResponseWriter, r *http.Request) {
+func (h *HttpHandler) HandleTripPreview(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 
-	var reqBody previewTripRequest;
-	if err:= json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+	var reqBody previewTripRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-
-	if reqBody.UserID=="" {
+	if reqBody.UserID == "" {
 		http.Error(w, "User ID is required", http.StatusBadRequest)
 		return
 	}
 
 	ctx := r.Context()
 	t, err := h.Service.GetRoute(ctx, &reqBody.Pickup, &reqBody.Destination)
-	
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	writeJSON(w,http.StatusCreated, t)
+	writeJSON(w, http.StatusCreated, t)
 
 }
-
 
 func writeJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")

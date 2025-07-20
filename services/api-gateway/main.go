@@ -19,38 +19,40 @@ var (
 func main() {
 	log.Println("Starting API Gateway")
 
-
 	mux := http.NewServeMux()
-	
-	mux.HandleFunc("POST /trip/preview", handleTripReview)
 
-	server:= &http.Server{
-		Addr: httpAddr,
+	mux.HandleFunc("POST /trip/preview", enableCORS(handleTripPreview))
+
+	mux.HandleFunc("/ws/drivers", handleDriversWebSocket)
+	mux.HandleFunc("/ws/riders", handleRidersWebSocket)
+
+	server := &http.Server{
+		Addr:    httpAddr,
 		Handler: mux,
 	}
 
-	serverErrors:= make(chan error,1)
+	serverErrors := make(chan error, 1)
 
-	go func(){
+	go func() {
 		log.Printf("Server listening on %s", httpAddr)
 		serverErrors <- server.ListenAndServe()
 	}()
 
-	shutdown := make(chan os.Signal,1)
+	shutdown := make(chan os.Signal, 1)
 
-	signal.Notify(shutdown,os.Interrupt,syscall.SIGTERM)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	select {
-	case err:= <-serverErrors:
+	case err := <-serverErrors:
 		log.Printf("Error starting the server: %v", err)
-	
-	case sig:=<-shutdown:
-		log.Printf("Server is shutting down due to %v signal",sig)
 
-		ctx,cancel:= context.WithTimeout(context.Background(),10*time.Second)
+	case sig := <-shutdown:
+		log.Printf("Server is shutting down due to %v signal", sig)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		if err:= server.Shutdown(ctx); err!=nil{
+		if err := server.Shutdown(ctx); err != nil {
 			log.Printf("Error during server shutdown: %v", err)
 			server.Close()
 		}
