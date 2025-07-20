@@ -1,10 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
+	"log"
 	"net/http"
+	"ride-sharing/services/api-gateway/grpc_clients"
+	"ride-sharing/shared/contracts"
 )
 
 func handleTripPreview(w http.ResponseWriter, r *http.Request) {
@@ -22,30 +23,27 @@ func handleTripPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jsonBody, err := json.Marshal(reqBody)
+	tripService, err := grpc_clients.NewTripServiceClient()
 
 	if err != nil {
-		http.Error(w, "Failed to marshal request", http.StatusInternalServerError)
+		http.Error(w, "Failed to create trip service client", http.StatusInternalServerError)
 		return
 	}
 
-	reader := bytes.NewReader(jsonBody) // creating a new reader buffer because r.Body is already closed
+	defer tripService.Close()
 
-	response, err := http.Post("http://trip-service:8083/trip/preview", "application/json", reader)
+	tripPreview, err := tripService.Client.PreviewTrip(r.Context(), reqBody.toProto())
 
 	if err != nil {
-		http.Error(w, "Failed to connect to trip service", http.StatusInternalServerError)
+		log.Printf("Failed to preview trip: %v", err)
+		http.Error(w, "Failed to preview trip: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	defer response.Body.Close()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	if _, err := io.Copy(w, response.Body); err != nil {
-		// Log error if needed
-		return
+	response := contracts.APIResponse{
+		Data: tripPreview,
 	}
+
+	writeJSON(w, http.StatusCreated, response)
 
 }
