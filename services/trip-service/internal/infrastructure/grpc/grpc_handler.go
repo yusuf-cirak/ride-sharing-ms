@@ -55,7 +55,7 @@ func (h *gRPCHandler) PreviewTrip(ctx context.Context, req *tripGrpc.PreviewTrip
 
 	return &tripGrpc.PreviewTripResponse{
 		Route:     t.ToProto(),
-		RideFares: fares,
+		RideFares: domain.ToRideFaresProto(fares),
 	}, nil
 }
 

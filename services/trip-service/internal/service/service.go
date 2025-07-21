@@ -84,7 +84,7 @@ func estimateFareRoute(f *domain.RideFareModel, r *tripTypes.OsrmApiResponse) *d
 
 	distanceFare := distanceKm * pricingConfig.PricePerUnitOfDistance
 	timeFare := durationInMinutes * pricingConfig.PricingPerMinute
-	totalPrice := distanceFare + timeFare
+	totalPrice := distanceFare + timeFare + carPackagePrice
 
 	return &domain.RideFareModel{
 		TotalPriceInCents: totalPrice,
