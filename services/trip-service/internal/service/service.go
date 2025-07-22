@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"ride-sharing/services/trip-service/internal/domain"
 	tripTypes "ride-sharing/services/trip-service/pkg/types"
+	pb "ride-sharing/shared/proto/trip"
 	"ride-sharing/shared/types"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -30,9 +31,27 @@ func (s *service) CreateTrip(ctx context.Context, fare *domain.RideFareModel) (*
 		UserID:   fare.UserID,
 		Status:   "pending",
 		RideFare: fare,
+		Driver:   &pb.TripDriver{},
 	}
 
 	return s.repo.CreateTrip(ctx, &trip)
+}
+
+func (s *service) GetAndValidateFare(ctx context.Context, fareID, userID string) (*domain.RideFareModel, error) {
+	fare, err := s.repo.GetRideFareByID(ctx, fareID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ride fare: %w", err)
+	}
+
+	if fare == nil {
+		return nil, fmt.Errorf("ride fare not found")
+	}
+
+	if fare.UserID != userID {
+		return nil, fmt.Errorf("fare does not belong to user")
+	}
+
+	return fare, nil
 }
 
 func (s *service) GetRoute(ctx context.Context, pickup, destination *types.Coordinate) (*tripTypes.OsrmApiResponse, error) {
@@ -59,6 +78,25 @@ func (s *service) GetRoute(ctx context.Context, pickup, destination *types.Coord
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
+	if len(route.Routes) == 0 {
+		return &tripTypes.OsrmApiResponse{
+			Routes: []tripTypes.Route{
+				{
+					Distance: 10000,
+					Duration: 40,
+					Geometry: struct {
+						Coordinates [][]float64 "json:\"coordinates\""
+					}{
+						Coordinates: [][]float64{
+							{pickup.Latitude, pickup.Longitude},
+							{destination.Latitude, destination.Longitude},
+						},
+					},
+				},
+			},
+		}, nil
+	}
+
 	return &route, nil
 }
 
@@ -79,8 +117,9 @@ func estimateFareRoute(f *domain.RideFareModel, r *tripTypes.OsrmApiResponse) *d
 
 	carPackagePrice := f.TotalPriceInCents
 
-	distanceKm := r.Routes[0].Distance
-	durationInMinutes := r.Routes[0].Duration
+	route := r.Routes[0]
+	distanceKm := route.Distance
+	durationInMinutes := route.Duration
 
 	distanceFare := distanceKm * pricingConfig.PricePerUnitOfDistance
 	timeFare := durationInMinutes * pricingConfig.PricingPerMinute
@@ -91,10 +130,11 @@ func estimateFareRoute(f *domain.RideFareModel, r *tripTypes.OsrmApiResponse) *d
 		PackageSlug:       f.PackageSlug,
 	}
 }
-func (s *service) GenerateTripFares(ctx context.Context, f []*domain.RideFareModel, userID string) ([]*domain.RideFareModel, error) {
+func (s *service) GenerateTripFares(ctx context.Context, f []*domain.RideFareModel, userID string, route *tripTypes.OsrmApiResponse) ([]*domain.RideFareModel, error) {
 	for _, fare := range f {
 		fare.ID = primitive.NewObjectID()
 		fare.UserID = userID
+		fare.Route = route
 
 		if err := s.repo.SaveRideFare(ctx, fare); err != nil {
 			return nil, fmt.Errorf("failed to save ride fare: %w", err)

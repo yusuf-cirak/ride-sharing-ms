@@ -3,13 +3,15 @@ package types
 import tripGrpc "ride-sharing/shared/proto/trip"
 
 type OsrmApiResponse struct {
-	Routes []struct {
-		Distance float64 `json:"distance"`
-		Duration float64 `json:"duration"`
-		Geometry struct {
-			Coordinates [][]float64 `json:"coordinates"`
-		} `json:"geometry"`
-	} `json:"routes"`
+	Routes []Route `json:"routes"`
+}
+
+type Route struct {
+	Distance float64 `json:"distance"`
+	Duration float64 `json:"duration"`
+	Geometry struct {
+		Coordinates [][]float64 `json:"coordinates"`
+	} `json:"geometry"`
 }
 
 func (r *OsrmApiResponse) ToProto() *tripGrpc.Route {

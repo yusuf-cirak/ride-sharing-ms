@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 	"ride-sharing/services/trip-service/internal/domain"
-	tripGrpc "ride-sharing/shared/proto/trip"
+	pb "ride-sharing/shared/proto/trip"
 	"ride-sharing/shared/types"
 
 	"google.golang.org/grpc"
@@ -12,7 +12,7 @@ import (
 )
 
 type gRPCHandler struct {
-	tripGrpc.UnimplementedTripServiceServer
+	pb.UnimplementedTripServiceServer
 	service domain.TripService
 }
 
@@ -21,11 +21,11 @@ func NewGRPCHandler(server *grpc.Server, service domain.TripService) *gRPCHandle
 		service: service,
 	}
 
-	tripGrpc.RegisterTripServiceServer(server, handler)
+	pb.RegisterTripServiceServer(server, handler)
 	return handler
 }
 
-func (h *gRPCHandler) PreviewTrip(ctx context.Context, req *tripGrpc.PreviewTripRequest) (*tripGrpc.PreviewTripResponse, error) {
+func (h *gRPCHandler) PreviewTrip(ctx context.Context, req *pb.PreviewTripRequest) (*pb.PreviewTripResponse, error) {
 	pickup := req.GetStartLocation()
 	destination := req.GetEndLocation()
 
@@ -48,18 +48,29 @@ func (h *gRPCHandler) PreviewTrip(ctx context.Context, req *tripGrpc.PreviewTrip
 
 	estimatedFares := h.service.EstimatePackagesPriceWithRoute(t)
 
-	fares, err := h.service.GenerateTripFares(ctx, estimatedFares, userID)
+	fares, err := h.service.GenerateTripFares(ctx, estimatedFares, userID,t)
 	if err != nil {
 		return nil, status.Errorf(codes.Aborted, "failed to generate trip fares: %v", err)
 	}
 
-	return &tripGrpc.PreviewTripResponse{
+	return &pb.PreviewTripResponse{
 		Route:     t.ToProto(),
 		RideFares: domain.ToRideFaresProto(fares),
 	}, nil
 }
 
-func (h *gRPCHandler) CreateTrip(ctx context.Context, req *tripGrpc.CreateTripRequest) (*tripGrpc.CreateTripResponse, error) {
-	// Implement the logic to create a trip
-	return nil, status.Errorf(codes.Unimplemented, "method CreateTrip not implemented")
+func (h *gRPCHandler) CreateTrip(ctx context.Context, req *pb.CreateTripRequest) (*pb.CreateTripResponse, error) {
+	rideFare, err := h.service.GetAndValidateFare(ctx, req.GetRideFareID(), req.GetUserID())
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, "failed to get and validate fare: %v", err)
+	}
+
+	trip, err := h.service.CreateTrip(ctx, rideFare)
+	if err != nil {
+		return nil, status.Errorf(codes.Aborted, "failed to create trip: %v", err)
+	}
+
+	return &pb.CreateTripResponse{
+		TripID: trip.ID.Hex(),
+	}, nil
 }
