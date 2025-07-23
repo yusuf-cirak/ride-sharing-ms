@@ -1,18 +1,50 @@
 package main
 
-import "log"
+import (
+	"context"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"google.golang.org/grpc"
+)
+
+var GrpcAddress = ":9092"
 
 func main() {
-	log.Println("Driver service main function started")
-	// Initialize the driver service here
-	// This could include setting up the server, connecting to databases, etc.
+	ctx, cancel := context.WithCancel(context.Background())
 
-	// Example: Start the gRPC server
-	// grpcServer := grpc.NewServer()
-	// Register your service implementations here
-	// if err := grpcServer.Serve(lis); err != nil {
-	// 	log.Fatalf("Failed to serve: %v", err)
-	// }
+	defer cancel()
 
-	log.Println("Driver service is running")
+	go func() {
+		signalChan := make(chan os.Signal, 1)
+		signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+		<-signalChan
+		cancel()
+	}()
+
+	lis, err := net.Listen("tcp", GrpcAddress)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	service := NewService()
+	// Starting gRPC server
+	grpcServer := grpc.NewServer()
+	NewGrpcHandler(grpcServer, service)
+
+	log.Printf("Trip service is running on %s", lis.Addr().String())
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("Shutting down trip service...")
+	grpcServer.GracefulStop()
+
 }
