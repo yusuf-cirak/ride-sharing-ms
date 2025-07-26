@@ -56,6 +56,46 @@ func (r *RabbitMQ) setupExchangesAndQueues() error {
 	return nil
 }
 
+type MessageHandler func(ctx context.Context, msg amqp.Delivery) error
+
+func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) error {
+	msgs, err := r.Channel.Consume(
+		queueName, // queue
+		"",        // consumer
+		false,     // auto-ack
+		false,     // exclusive
+		false,     // no-local
+		false,     // no-wait
+		nil,       // args
+	)
+	if err != nil {
+		fmt.Printf("Failed to register a consumer: %v\n", err)
+		return fmt.Errorf("failed to register a consumer: %w", err)
+	}
+
+	go func() {
+		for msg := range msgs {
+			ctx := context.Background()
+			if err := handler(ctx, msg); err != nil {
+				err = msg.Nack(false, false) // nack the message if handling fails
+
+				if err != nil {
+					// Log the error if nack fails
+					fmt.Printf("Failed to nack message: %v\n", err)
+				}
+				fmt.Printf("Error handling message: %v\n", err)
+
+				continue
+			}
+
+			msg.Ack(false) // ack the message if handling succeeds
+			fmt.Printf("Message processed: %s\n", msg.Body)
+		}
+	}()
+
+	return nil
+}
+
 func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, message any) error {
 	jsonMessage, err := json.Marshal(message)
 	if err != nil {
