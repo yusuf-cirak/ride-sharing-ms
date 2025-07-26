@@ -5,33 +5,33 @@ import (
 	"net/http"
 	"ride-sharing/services/api-gateway/grpc_clients"
 	"ride-sharing/shared/contracts"
+	"ride-sharing/shared/messaging"
 
 	driverGrpc "ride-sharing/shared/proto/driver"
-
-	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
+var (
+	connManager = messaging.NewConnectionManager()
+)
 
 func handleRidersWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := connManager.Upgrade(w, r)
 
 	if err != nil {
 		log.Printf("Websocket upgrade failed: %v", err)
 	}
 	defer conn.Close()
 
-	userId := r.URL.Query().Get("userID")
+	userID := r.URL.Query().Get("userID")
 
-	if userId == "" {
+	if userID == "" {
 		log.Println("User ID is required for WebSocket connection")
 		http.Error(w, "User ID is required", http.StatusBadRequest)
 		return
 	}
+
+	connManager.Add(userID, conn)
+	defer connManager.Remove(userID)
 
 	for {
 		_, message, err := conn.ReadMessage()
@@ -41,12 +41,12 @@ func handleRidersWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		log.Printf("Received message from rider %s: %s", userId, message)
+		log.Printf("Received message from rider %s: %s", userID, message)
 	}
 }
 
 func handleDriversWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := connManager.Upgrade(w, r)
 
 	if err != nil {
 		log.Printf("Websocket upgrade failed: %v", err)
@@ -54,9 +54,9 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	defer conn.Close()
 
-	userId := r.URL.Query().Get("userID")
+	userID := r.URL.Query().Get("userID")
 
-	if userId == "" {
+	if userID == "" {
 		log.Println("User ID is required for WebSocket connection")
 		http.Error(w, "User ID is required", http.StatusBadRequest)
 		return
@@ -70,6 +70,8 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	connManager.Add(userID, conn)
+
 	ctx := r.Context()
 
 	driverService, err := grpc_clients.NewDriverServiceClient()
@@ -79,18 +81,19 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer func() {
+		connManager.Remove(userID)
 		driverService.Client.UnregisterDriver(ctx, &driverGrpc.RegisterDriverRequest{
-			DriverID:    userId,
+			DriverID:    userID,
 			PackageSlug: packageSlug,
 		})
 
-		log.Printf("Driver %s unregistered successfully", userId)
+		log.Printf("Driver %s unregistered successfully", userID)
 
 		driverService.Close()
 	}()
 
 	driverData, err := driverService.Client.RegisterDriver(ctx, &driverGrpc.RegisterDriverRequest{
-		DriverID: userId, PackageSlug: packageSlug,
+		DriverID: userID, PackageSlug: packageSlug,
 	})
 
 	if err != nil {
@@ -99,12 +102,12 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	msg := contracts.WSMessage{
-		Type: "driver.cmd.register",
+		Type: contracts.DriverCmdRegister,
 		Data: driverData.Driver,
 	}
 
-	if err := conn.WriteJSON(msg); err != nil {
-		log.Printf("Error sending message to driver %s: %v", userId, err)
+	if err := connManager.SendMessage(userID, msg); err != nil {
+		log.Printf("Error sending message to driver %s: %v", userID, err)
 		return
 	}
 
@@ -116,6 +119,6 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		log.Printf("Received message from rider %s: %s", userId, message)
+		log.Printf("Received message from rider %s: %s", userID, message)
 	}
 }
