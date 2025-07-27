@@ -29,7 +29,6 @@ func (s *paymentService) CreatePaymentSession(
 	userID string,
 	driverID string,
 	amount int64,
-	currency string,
 ) (*types.PaymentIntent, error) {
 	metadata := map[string]string{
 		"trip_id":   tripID,
@@ -37,7 +36,7 @@ func (s *paymentService) CreatePaymentSession(
 		"driver_id": driverID,
 	}
 
-	sessionID, err := s.paymentProcessor.CreatePaymentSession(ctx, amount, currency, metadata)
+	sessionID, err := s.paymentProcessor.CreatePaymentSession(ctx, amount, metadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create payment session: %w", err)
 	}
@@ -48,7 +47,6 @@ func (s *paymentService) CreatePaymentSession(
 		UserID:          userID,
 		DriverID:        driverID,
 		Amount:          amount,
-		Currency:        currency,
 		StripeSessionID: sessionID,
 		CreatedAt:       time.Now(),
 	}

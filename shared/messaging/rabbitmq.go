@@ -45,7 +45,6 @@ func NewRabbitMQ(uri string) (*RabbitMQ, error) {
 }
 
 func (r *RabbitMQ) setupExchangesAndQueues() error {
-
 	err := r.Channel.ExchangeDeclare(
 		TripExchange, // name
 		"topic",      // type
@@ -55,59 +54,66 @@ func (r *RabbitMQ) setupExchangesAndQueues() error {
 		false,        // no-wait
 		nil,          // arguments
 	)
-
 	if err != nil {
-		return fmt.Errorf("failed to declare exchange: %w", err)
+		return fmt.Errorf("failed to declare exchange: %s: %v", TripExchange, err)
 	}
 
-	err = r.declareAndBindQueue(
+	if err := r.declareAndBindQueue(
 		FindAvailableDriversQueue,
-		[]string{contracts.TripEventCreated, contracts.TripEventDriverNotInterested},
+		[]string{
+			contracts.TripEventCreated, contracts.TripEventDriverNotInterested,
+		},
 		TripExchange,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to declare and bind queue for find_available_drivers: %w", err)
+	); err != nil {
+		return err
 	}
 
-	err = r.declareAndBindQueue(
+	if err := r.declareAndBindQueue(
 		DriverCmdTripRequestQueue,
 		[]string{contracts.DriverCmdTripRequest},
 		TripExchange,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to declare and bind queue for find_available_drivers: %w", err)
+	); err != nil {
+		return err
 	}
 
-	err = r.declareAndBindQueue(
+	if err := r.declareAndBindQueue(
 		DriverTripResponseQueue,
 		[]string{contracts.DriverCmdTripAccept, contracts.DriverCmdTripDecline},
 		TripExchange,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to declare and bind queue for find_available_drivers: %w", err)
+	); err != nil {
+		return err
 	}
 
-	err = r.declareAndBindQueue(
+	if err := r.declareAndBindQueue(
 		NotifyDriverNoDriversFoundQueue,
 		[]string{contracts.TripEventNoDriversFound},
 		TripExchange,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to declare and bind queue for find_available_drivers: %w", err)
+	); err != nil {
+		return err
 	}
 
-	err = r.declareAndBindQueue(
+	if err := r.declareAndBindQueue(
 		NotifyDriverAssignQueue,
 		[]string{contracts.TripEventDriverAssigned},
 		TripExchange,
-	)
+	); err != nil {
+		return err
+	}
 
-	if err != nil {
-		return fmt.Errorf("failed to declare and bind queue for find_available_drivers: %w", err)
+	if err := r.declareAndBindQueue(
+		PaymentTripResponseQueue,
+		[]string{contracts.PaymentCmdCreateSession},
+		TripExchange,
+	); err != nil {
+		return err
+	}
+
+	if err := r.declareAndBindQueue(
+		NotifyPaymentSessionCreatedQueue,
+		[]string{contracts.PaymentEventSessionCreated},
+		TripExchange,
+	); err != nil {
+		return err
 	}
 
 	return nil

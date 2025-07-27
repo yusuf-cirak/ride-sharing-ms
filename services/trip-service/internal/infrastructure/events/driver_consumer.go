@@ -54,7 +54,6 @@ func (c *driverConsumer) Listen() error {
 			return nil
 		}
 
-		log.Printf("Unhandled routing key: %s", msg.RoutingKey)
 		return nil
 	})
 }
@@ -94,7 +93,13 @@ func (c *driverConsumer) handleTripAccepted(ctx context.Context, payload *messag
 		return err
 	}
 
-	// todo: notify the payment service to start a payment link
+	if err := c.rabbitMQ.PublishMessage(ctx, contracts.PaymentCmdCreateSession, &contracts.AmqpMessage{
+		OwnerID: trip.UserID,
+		Data:    marshalTrip,
+	}); err != nil {
+		log.Printf("failed to publish payment command: %v", err)
+		return err
+	}
 
 	return nil
 }

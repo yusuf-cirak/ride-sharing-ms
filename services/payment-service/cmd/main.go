@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"ride-sharing/services/payment-service/internal/events"
 	"ride-sharing/services/payment-service/internal/infrastructure/stripe"
 	"ride-sharing/services/payment-service/internal/service"
 	"ride-sharing/services/payment-service/pkg/types"
@@ -56,6 +57,10 @@ func main() {
 		log.Fatal(err)
 	}
 	defer rabbitmq.Close()
+
+	// Trip Consumer
+	tripConsumer := events.NewTripConsumer(rabbitmq, paymentService)
+	go tripConsumer.Listen()
 
 	log.Println("Starting RabbitMQ connection")
 

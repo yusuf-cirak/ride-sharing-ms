@@ -23,7 +23,7 @@ func NewStripeClient(config *types.PaymentConfig) domain.PaymentProcessor {
 	}
 }
 
-func (s *stripeClient) CreatePaymentSession(ctx context.Context, amount int64, currency string, metadata map[string]string) (string, error) {
+func (s *stripeClient) CreatePaymentSession(ctx context.Context, amount int64, metadata map[string]string) (string, error) {
 	params := &stripe.CheckoutSessionParams{
 		SuccessURL: stripe.String(s.config.SuccessURL),
 		CancelURL:  stripe.String(s.config.CancelURL),
@@ -31,7 +31,7 @@ func (s *stripeClient) CreatePaymentSession(ctx context.Context, amount int64, c
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
 				PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
-					Currency: stripe.String(currency),
+					Currency: stripe.String("usd"), // Assuming USD, can be parameterized
 					ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
 						Name: stripe.String("Ride Payment"),
 					},
