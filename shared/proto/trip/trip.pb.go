@@ -464,7 +464,7 @@ func (x *CreateTripResponse) GetTripID() string {
 type Trip struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	RideFare      *RideFare              `protobuf:"bytes,2,opt,name=rideFare,proto3" json:"rideFare,omitempty"`
+	SelectedFare  *RideFare              `protobuf:"bytes,2,opt,name=selectedFare,proto3" json:"selectedFare,omitempty"`
 	Route         *Route                 `protobuf:"bytes,3,opt,name=route,proto3" json:"route,omitempty"`
 	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
 	UserID        string                 `protobuf:"bytes,5,opt,name=userID,proto3" json:"userID,omitempty"`
@@ -510,9 +510,9 @@ func (x *Trip) GetId() string {
 	return ""
 }
 
-func (x *Trip) GetRideFare() *RideFare {
+func (x *Trip) GetSelectedFare() *RideFare {
 	if x != nil {
-		return x.RideFare
+		return x.SelectedFare
 	}
 	return nil
 }
@@ -648,10 +648,10 @@ const file_trip_proto_rawDesc = "" +
 	"rideFareID\x12\x16\n" +
 	"\x06userID\x18\x02 \x01(\tR\x06userID\",\n" +
 	"\x12CreateTripResponse\x12\x16\n" +
-	"\x06tripID\x18\x01 \x01(\tR\x06tripID\"\xbf\x01\n" +
+	"\x06tripID\x18\x01 \x01(\tR\x06tripID\"\xc7\x01\n" +
 	"\x04Trip\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12*\n" +
-	"\brideFare\x18\x02 \x01(\v2\x0e.trip.RideFareR\brideFare\x12!\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x122\n" +
+	"\fselectedFare\x18\x02 \x01(\v2\x0e.trip.RideFareR\fselectedFare\x12!\n" +
 	"\x05route\x18\x03 \x01(\v2\v.trip.RouteR\x05route\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12\x16\n" +
 	"\x06userID\x18\x05 \x01(\tR\x06userID\x12(\n" +
@@ -699,7 +699,7 @@ var file_trip_proto_depIdxs = []int32{
 	5,  // 3: trip.PreviewTripResponse.rideFares:type_name -> trip.RideFare
 	2,  // 4: trip.Geometry.coordinates:type_name -> trip.Coordinate
 	3,  // 5: trip.Route.geometry:type_name -> trip.Geometry
-	5,  // 6: trip.Trip.rideFare:type_name -> trip.RideFare
+	5,  // 6: trip.Trip.selectedFare:type_name -> trip.RideFare
 	4,  // 7: trip.Trip.route:type_name -> trip.Route
 	9,  // 8: trip.Trip.driver:type_name -> trip.TripDriver
 	0,  // 9: trip.TripService.PreviewTrip:input_type -> trip.PreviewTripRequest

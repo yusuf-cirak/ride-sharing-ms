@@ -51,7 +51,7 @@ func (c *tripConsumer) Listen() error {
 
 func (c *tripConsumer) handleFindAndNotifyDrivers(ctx context.Context, payload *messaging.TripEventData) error {
 
-	suitableIDs := c.service.FindAvailableDrivers(payload.Trip.RideFare.PackageSlug)
+	suitableIDs := c.service.FindAvailableDrivers(payload.Trip.SelectedFare.PackageSlug)
 
 	if suitableIDs == nil || len(suitableIDs) == 0 {
 		log.Printf("No suitable drivers found for trip %s", payload.Trip.Id)
@@ -75,7 +75,7 @@ func (c *tripConsumer) handleFindAndNotifyDrivers(ctx context.Context, payload *
 	log.Printf("Found suitable driver %s for trip %s", suitableDriverID, payload.Trip.Id)
 
 	if err := c.rabbitMQ.PublishMessage(ctx, contracts.DriverCmdTripRequest, &contracts.AmqpMessage{
-		OwnerID: payload.Trip.UserID,
+		OwnerID: suitableDriverID,
 		Data:    marshaledData,
 	}); err != nil {
 		log.Printf("failed to publish message: %v", err)

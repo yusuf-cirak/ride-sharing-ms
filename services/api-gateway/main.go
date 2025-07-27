@@ -10,22 +10,33 @@ import (
 	"time"
 
 	"ride-sharing/shared/env"
+	"ride-sharing/shared/messaging"
 )
 
 var (
-	httpAddr = env.GetString("HTTP_ADDR", ":8081")
+	httpAddr    = env.GetString("HTTP_ADDR", ":8081")
+	rabbitmqUri = env.GetString("RABBITMQ_URI", "amqp://guest:guest@localhost:5672/")
 )
 
 func main() {
 	log.Println("Starting API Gateway")
+	rabbitmq, err := messaging.NewRabbitMQ(rabbitmqUri)
+	if err != nil {
+		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
 
+	defer rabbitmq.Close()
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /trip/preview", enableCORS(handleTripPreview))
 	mux.HandleFunc("POST /trip/start", enableCORS(handleTripStart))
 
-	mux.HandleFunc("/ws/drivers", handleDriversWebSocket)
-	mux.HandleFunc("/ws/riders", handleRidersWebSocket)
+	mux.HandleFunc("/ws/drivers", func(w http.ResponseWriter, r *http.Request) {
+		handleDriversWebSocket(w, r, rabbitmq)
+	})
+	mux.HandleFunc("/ws/riders", func(w http.ResponseWriter, r *http.Request) {
+		handleRidersWebSocket(w, r, rabbitmq)
+	})
 
 	server := &http.Server{
 		Addr:    httpAddr,

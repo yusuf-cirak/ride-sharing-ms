@@ -19,12 +19,12 @@ type TripModel struct {
 
 func (t *TripModel) ToProto() *pb.Trip {
 	return &pb.Trip{
-		Id:       t.ID.Hex(),
-		UserID:   t.UserID,
-		Status:   t.Status,
-		RideFare: t.RideFare.ToProto(),
-		Driver:   t.Driver,
-		Route:    t.RideFare.Route.ToProto(),
+		Id:           t.ID.Hex(),
+		UserID:       t.UserID,
+		Status:       t.Status,
+		SelectedFare: t.RideFare.ToProto(),
+		Driver:       t.Driver,
+		Route:        t.RideFare.Route.ToProto(),
 	}
 }
 
