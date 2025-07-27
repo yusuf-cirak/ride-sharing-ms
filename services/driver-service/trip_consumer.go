@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math/rand"
 	"ride-sharing/shared/contracts"
 	"ride-sharing/shared/messaging"
 
@@ -53,7 +54,7 @@ func (c *tripConsumer) handleFindAndNotifyDrivers(ctx context.Context, payload *
 
 	suitableIDs := c.service.FindAvailableDrivers(payload.Trip.SelectedFare.PackageSlug)
 
-	if suitableIDs == nil || len(suitableIDs) == 0 {
+	if len(suitableIDs) == 0 {
 		log.Printf("No suitable drivers found for trip %s", payload.Trip.Id)
 
 		if err := c.rabbitMQ.PublishMessage(ctx, contracts.TripEventNoDriversFound, &contracts.AmqpMessage{OwnerID: payload.Trip.UserID}); err != nil {
@@ -63,7 +64,8 @@ func (c *tripConsumer) handleFindAndNotifyDrivers(ctx context.Context, payload *
 		return nil
 	}
 
-	suitableDriverID := (suitableIDs)[0]
+	randomIndex := rand.Intn(len(suitableIDs))
+	suitableDriverID := suitableIDs[randomIndex]
 
 	marshaledData, err := json.Marshal(payload.Trip)
 
