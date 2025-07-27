@@ -65,10 +65,10 @@ func (c *tripConsumer) handleFindAndNotifyDrivers(ctx context.Context, payload *
 
 	suitableDriverID := (suitableIDs)[0]
 
-	marshaledData, err := json.Marshal(suitableDriverID)
+	marshaledData, err := json.Marshal(payload.Trip)
 
 	if err != nil {
-		log.Printf("failed to marshal driver ID: %v", err)
+		log.Printf("failed to marshal trip data: %v", err)
 		return err
 	}
 
