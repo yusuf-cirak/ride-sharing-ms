@@ -38,6 +38,13 @@ func main() {
 		handleRidersWebSocket(w, r, rabbitmq)
 	})
 
+	// install stripe cli
+	// stripe listen --forward-to localhost:8081/webhook/stripe
+	// update the webhook secret in the k8s secret as stripe-webhook-key
+	mux.HandleFunc("/stripe/webhook", func(w http.ResponseWriter, r *http.Request) {
+		handleStripeWebhook(w, r, rabbitmq)
+	})
+
 	server := &http.Server{
 		Addr:    httpAddr,
 		Handler: mux,
