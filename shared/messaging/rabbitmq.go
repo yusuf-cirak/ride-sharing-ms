@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"ride-sharing/shared/contracts"
+	"ride-sharing/shared/tracing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -188,21 +190,30 @@ func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) err
 
 	go func() {
 		for msg := range msgs {
-			ctx := context.Background()
-			if err := handler(ctx, msg); err != nil {
-				err = msg.Nack(false, false) // nack the message if handling fails
+			if err := tracing.TracedConsumer(msg, func(ctx context.Context, d amqp.Delivery) error {
 
-				if err != nil {
-					// Log the error if nack fails
-					fmt.Printf("Failed to nack message: %v\n", err)
+				log.Printf("Received a message: %s", msg.Body)
+
+				if err := handler(ctx, msg); err != nil {
+					log.Printf("ERROR: Failed to handle message: %v. Message body: %s", err, msg.Body)
+					// Nack the message. Set requeue to false to avoid immediate redelivery loops.
+					// Consider a dead-letter exchange (DLQ) or a more sophisticated retry mechanism for production.
+					if nackErr := msg.Nack(false, false); nackErr != nil {
+						log.Printf("ERROR: Failed to Nack message: %v", nackErr)
+					}
+
+					return err
 				}
-				fmt.Printf("Error handling message: %v\n", err)
 
-				continue
+				// Only Ack if the handler succeeds
+				if ackErr := msg.Ack(false); ackErr != nil {
+					log.Printf("ERROR: Failed to Ack message: %v. Message body: %s", ackErr, msg.Body)
+				}
+
+				return nil
+			}); err != nil {
+				log.Printf("Error processing message: %v", err)
 			}
-
-			msg.Ack(false) // ack the message if handling succeeds
-			fmt.Printf("Message processed: %s\n", msg.Body)
 		}
 	}()
 
@@ -216,21 +227,25 @@ func (r *RabbitMQ) PublishMessage(ctx context.Context, routingKey string, messag
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
 
-	err = r.Channel.PublishWithContext(ctx,
-		TripExchange, // exchange
-		routingKey,   // routing key
-		false,        // mandatory
-		false,        // immediate
-		amqp.Publishing{
-			ContentType:  "application/json",
-			Body:         jsonMessage,
-			DeliveryMode: amqp.Persistent, // make message persistent
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to publish message: %w", err)
+	msg := amqp.Publishing{
+		ContentType:  "application/json",
+		Body:         jsonMessage,
+		DeliveryMode: amqp.Persistent, // ensure message is persistent
 	}
-	return nil
+
+	return tracing.TracedPublisher(ctx, TripExchange, routingKey, msg, r.publish)
+}
+
+func (r *RabbitMQ) publish(ctx context.Context, exchange, routingKey string, msg amqp.Publishing) error {
+	err := r.Channel.PublishWithContext(ctx,
+		exchange,   // exchange
+		routingKey, // routing key
+		false,      // mandatory
+		false,      // immediate
+		msg,        // message
+	)
+
+	return err
 }
 
 func (r *RabbitMQ) Close() error {
