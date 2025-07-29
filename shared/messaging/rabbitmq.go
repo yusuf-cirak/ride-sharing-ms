@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"ride-sharing/shared/contracts"
+	"ride-sharing/shared/retry"
 	"ride-sharing/shared/tracing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -192,16 +193,31 @@ func (r *RabbitMQ) ConsumeMessages(queueName string, handler MessageHandler) err
 		for msg := range msgs {
 			if err := tracing.TracedConsumer(msg, func(ctx context.Context, d amqp.Delivery) error {
 
-				log.Printf("Received a message: %s", msg.Body)
+				cfg := retry.DefaultConfig()
 
-				if err := handler(ctx, msg); err != nil {
+				err := retry.WithBackoff(ctx, cfg, func() error {
+					return handler(ctx, d)
+				})
+
+				if err != nil {
 					log.Printf("ERROR: Failed to handle message: %v. Message body: %s", err, msg.Body)
-					// Nack the message. Set requeue to false to avoid immediate redelivery loops.
-					// Consider a dead-letter exchange (DLQ) or a more sophisticated retry mechanism for production.
-					if nackErr := msg.Nack(false, false); nackErr != nil {
-						log.Printf("ERROR: Failed to Nack message: %v", nackErr)
+
+					headers := amqp.Table{}
+
+					if d.Headers != nil {
+						headers = d.Headers
 					}
 
+					headers["x-death-reason"] = err.Error()
+					headers["x-original-exchange"] = d.Exchange
+					headers["x-original-routing-key"] = d.RoutingKey
+					headers["x-retry-count"] = cfg.MaxRetries
+
+					d.Headers = headers
+
+					// reject without requeue - message will go to DLQ
+
+					_ = d.Reject(false)
 					return err
 				}
 
