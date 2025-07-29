@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	TripExchange = "trip"
+	TripExchange       = "trip"
+	DeadLetterExchange = "dlx"
 )
 
 type RabbitMQ struct {
@@ -47,7 +48,55 @@ func NewRabbitMQ(uri string) (*RabbitMQ, error) {
 	return rabbitmq, nil
 }
 
+func (r *RabbitMQ) setupDeadLetterExchange() error {
+	err := r.Channel.ExchangeDeclare(
+		DeadLetterExchange, // name
+		"topic",            // type
+		true,               // durable
+		false,              // auto-deleted
+		false,              // internal
+		false,              // no-wait
+		nil,                // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare exchange: %s: %v", DeadLetterExchange, err)
+	}
+
+	q, err := r.Channel.QueueDeclare(
+		DeadLetterQueue, // name
+		true,            // durable
+		false,           // delete when unused
+		false,           // exclusive
+		false,           // no-wait
+		nil,             // arguments
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to declare queue %s: %w", DeadLetterQueue, err)
+	}
+
+	// Bind the dead letter queue to the dead letter exchange with a wildcard routing key
+
+	err = r.Channel.QueueBind(
+		q.Name,             // queue name
+		"#",                // routing key
+		DeadLetterExchange, // exchange
+		false,              // no-wait
+		nil,                // arguments
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to bind queue %s to exchange %s: %w", DeadLetterQueue, DeadLetterExchange, err)
+	}
+
+	return nil
+}
+
 func (r *RabbitMQ) setupExchangesAndQueues() error {
+
+	if err := r.setupDeadLetterExchange(); err != nil {
+		return fmt.Errorf("failed to setup dead letter exchange: %w", err)
+	}
 	err := r.Channel.ExchangeDeclare(
 		TripExchange, // name
 		"topic",      // type
@@ -131,13 +180,17 @@ func (r *RabbitMQ) setupExchangesAndQueues() error {
 }
 
 func (r *RabbitMQ) declareAndBindQueue(queueName string, messageTypes []string, exchange string) error {
+	// Add dead letter configuration
+	args := amqp.Table{
+		"x-dead-letter-exchange": DeadLetterExchange,
+	}
 	_, err := r.Channel.QueueDeclare(
 		queueName, // name
 		true,      // durable
 		false,     // delete when unused
 		false,     // exclusive
 		false,     // no-wait
-		nil,       // arguments
+		args,      // arguments
 	)
 
 	if err != nil {
