@@ -74,7 +74,7 @@ func main() {
 	go paymentConsumer.Listen()
 
 	// Starting gRPC server
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(tracing.WithTracingInterceptors()...)
 
 	grpcHandlers.NewGRPCHandler(grpcServer, svc, publisher)
 
