@@ -39,7 +39,17 @@ func main() {
 	defer cancel()
 	defer tracingShutdown(ctx)
 
+	// mongoClient, err := db.NewMongoClient(ctx, db.NewMongoDefaultConfig())
+	// if err != nil {
+	// 	log.Fatalf("Failed to create MongoDB client: %v", err)
+	// }
+	// defer mongoClient.Disconnect(ctx)
+
+	// mongoDb := db.GetDatabase(mongoClient, db.NewMongoDefaultConfig())
+
 	rabbitMQURI := env.GetString("RABBITMQ_URI", "amqp://guest:guest@localhost:5672/")
+
+	// tripRepo := repository.NewMongoRepository(mongoDb)
 	inmemRepo := repository.NewInmemRepository()
 
 	svc := service.NewTripService(inmemRepo)
