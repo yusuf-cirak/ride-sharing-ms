@@ -51,9 +51,6 @@ func main() {
 
 	mux.Handle("POST /trip/preview", tracing.WrapHandlerFunc(enableCORS(handleTripPreview), "/trip/preview"))
 	mux.Handle("POST /trip/start", tracing.WrapHandlerFunc(enableCORS(handleTripStart), "/trip/start"))
-	mux.HandleFunc("/ws/drivers", func(w http.ResponseWriter, r *http.Request) {
-		handleDriversWebSocket(w, r, rabbitmq)
-	})
 
 	mux.Handle("ws/drivers", tracing.WrapHandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handleDriversWebSocket(w, r, rabbitmq)
