@@ -15,7 +15,7 @@ func WithTracingInterceptors() []grpc.ServerOption {
 
 func DialOptionsWithTracing() []grpc.DialOption {
 	return []grpc.DialOption{
-		grpc.WithStatsHandler(newServerHandler()),
+		grpc.WithStatsHandler(newClientHandler()),
 	}
 }
 
