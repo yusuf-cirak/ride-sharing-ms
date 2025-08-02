@@ -48,6 +48,7 @@ func handleRidersWebSocket(w http.ResponseWriter, r *http.Request, rb *messaging
 		}
 	}
 
+	// reading messages from the rider from its ws connection. there is nothing they do now. they actually send http requests to the API gateway.
 	for {
 		_, message, err := conn.ReadMessage()
 
@@ -131,6 +132,7 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request, rb *messagin
 		messaging.DriverCmdTripRequestQueue,
 	}
 
+	// start queue consumers for the driver
 	for _, q := range queues {
 		consumer := messaging.NewQueueConsumer(rb, connManager, q)
 		if err := consumer.Start(); err != nil {
@@ -138,6 +140,7 @@ func handleDriversWebSocket(w http.ResponseWriter, r *http.Request, rb *messagin
 		}
 	}
 
+	// reading messages from the driver from its ws connection.
 	for {
 		_, message, err := conn.ReadMessage()
 
